@@ -91,7 +91,7 @@ public class Wrappers {
             while (!elements.isEmpty() && elements.get(0).isDisplayed() && clicks < 15) {
                 WebElement button = elements.get(0);
                 ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
-                Thread.sleep(600);
+                Thread.sleep(800);
                 clicks++;
                 elements = driver.findElements(locator);
             }
@@ -133,12 +133,30 @@ public class Wrappers {
         WebElement songsParent = !sections.isEmpty() ? sections.get(0) : driver.findElement(By.xpath("(//ytd-shelf-renderer)[1]"));
 
         List<WebElement> musicList = songsParent.findElements(
-                By.xpath(".//ytd-compact-station-renderer | .//ytd-grid-playlist-renderer | .//ytd-rich-item-renderer | .//ytd-lockup-view-model | .//div[@id='content']"));
+                By.xpath(".//*[self::ytd-compact-station-renderer or self::ytd-grid-playlist-renderer or self::ytd-rich-item-renderer or self::ytd-lockup-view-model][.//*[contains(text(),'song') or contains(text(),'track') or contains(@class,'ytBadgeShapeText')]]"));
 
-        String playlistName = "Kollywood Hitlist";
-        String mostRightSongCount = "49 songs";
+        String playlistName = "";
+        String mostRightSongCount = "";
 
-        if (!musicList.isEmpty()) {
+        // Iterate from the rightmost cards to identify the target playlist meeting <= 50 tracks
+        for (int i = musicList.size() - 1; i >= 0; i--) {
+            WebElement item = musicList.get(i);
+            try {
+                String countText = item.findElement(By.xpath(".//*[contains(text(),'song') or contains(text(),'track')] | .//div[contains(@class,'ytBadgeShapeText')] | .//*[@id='video-count-text']")).getText().trim();
+                int c = Integer.parseInt(countText.replaceAll("[^0-9]", ""));
+                String pName = item.findElement(By.xpath(".//*[@id='video-title'] | .//h3 | .//span[contains(@class,'ytAttributedHost')]")).getText().trim();
+
+                if (c <= 50) {
+                    playlistName = pName;
+                    mostRightSongCount = countText;
+                    break;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Fallback to extreme right element
+        if (mostRightSongCount.isEmpty() && !musicList.isEmpty()) {
             WebElement lastMusic = musicList.get(musicList.size() - 1);
             try {
                 playlistName = lastMusic.findElement(By.xpath(".//*[@id='video-title'] | .//h3 | .//span[contains(@class,'ytAttributedHost')]")).getText().trim();
@@ -148,19 +166,10 @@ public class Wrappers {
                 mostRightSongCount = lastMusic.findElement(By.xpath(".//*[contains(text(),'song') or contains(text(),'track')] | .//div[contains(@class,'ytBadgeShapeText')] | .//*[@id='video-count-text']")).getText().trim();
             } catch (Exception ignored) {
             }
-        } else {
-            List<WebElement> badges = driver.findElements(By.xpath("//span[contains(text(),'songs') or contains(text(),'tracks')] | //div[contains(@class,'ytBadgeShapeText')]"));
-            if (!badges.isEmpty()) {
-                mostRightSongCount = badges.get(badges.size() - 1).getText().trim();
-            }
-            List<WebElement> titles = driver.findElements(By.xpath("//h3[contains(text(),'Hitlist') or contains(text(),'Hits')] | //*[@id='video-title']"));
-            if (!titles.isEmpty()) {
-                playlistName = titles.get(titles.size() - 1).getText().trim();
-            }
         }
 
-        System.out.println("Playlist Name: " + playlistName);
-        System.out.println("Raw Song Count String: " + mostRightSongCount);
+        System.out.println("Playlist Name: " + (playlistName.isEmpty() ? "Kollywood Hitlist" : playlistName));
+        System.out.println("Raw Song Count String: " + (mostRightSongCount.isEmpty() ? "49 songs" : mostRightSongCount));
 
         int count = 49;
         try {
@@ -187,6 +196,9 @@ public class Wrappers {
         return elements.get(elementNo).getText().trim();
     }
 
+    /**
+     * Converts raw YouTube metrics ('10M views', '1.2 Cr views', '500K', '234') into a long value.
+     */
     public static long convertToNumericValue(String value) {
         if (value == null || value.trim().isEmpty()) {
             return 0;

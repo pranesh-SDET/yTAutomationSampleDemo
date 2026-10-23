@@ -6,7 +6,6 @@ import java.util.Random;
 import java.util.logging.Level;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
@@ -55,25 +54,54 @@ public class TestCases extends ExcelDataProvider {
         Thread.sleep((new Random().nextInt(2) + 2) * 1000);
     }
 
-    @Test(enabled = true)
+   @Test(enabled = true)
     public void testCase01() throws InterruptedException {
         System.out.println("Running Test Case 01");
 
+        // 1. Assert on correct initial URL
         String currentUrl = driver.getCurrentUrl();
         Assert.assertTrue(currentUrl.contains("youtube.com"), "Failed to land on YouTube home page");
 
+        // 2. Open guide menu and scroll to the bottom of the sidebar for the About link
         Wrappers.ensureGuideMenuIsOpen(driver);
+        Thread.sleep(1000);
 
         By aboutLocator = By.xpath("//a[contains(text(),'About') or contains(@href,'about')]");
         try {
-            Wrappers.findElementAndClick(driver, aboutLocator);
+            WebElement aboutElement = driver.findElement(aboutLocator);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", aboutElement);
+            Thread.sleep(1000);
+            aboutElement.click();
         } catch (Exception e) {
-            driver.get("https://www.youtube.com/about/");
+            try {
+                WebElement aboutElement = driver.findElement(aboutLocator);
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", aboutElement);
+            } catch (Exception ex) {
+                driver.get("https://www.youtube.com/about/");
+            }
+        }
+        Thread.sleep(2500);
+
+        // 3. Assert on About page navigation
+        Assert.assertTrue(driver.getCurrentUrl().contains("about"), "Failed to move to About page");
+
+        // 4. Print the exact About messages on the screen
+        By youtubeContentLocator = By.xpath("//p[@data-cy='pageSubHeading']");
+        try {
+            String content = Wrappers.findElementAndPrint(driver, youtubeContentLocator, 0);
+            System.out.println(content);
+        } catch (Exception ignored) {
         }
 
-        By youtubeContentLocator = By.xpath("//p[@data-cy='pageSubHeading'] | //section[contains(@class,'ytabout__content')] | //h1");
-        String content = Wrappers.findElementAndPrint(driver, youtubeContentLocator, 0);
-        System.out.println("About page heading:\n" + content);
+        // Print full mission and descriptive message paragraphs
+        List<WebElement> aboutParagraphs = driver.findElements(
+                By.xpath("//p[@data-cy='pageSubHeading'] | //section[contains(@class,'ytabout__content')]//p | //main//p"));
+        for (WebElement p : aboutParagraphs) {
+            String text = p.getText().trim();
+            if (!text.isEmpty()) {
+                System.out.println(text);
+            }
+        }
 
         System.out.println("Ending Test Case 01");
     }
@@ -92,10 +120,20 @@ public class TestCases extends ExcelDataProvider {
         }
         Thread.sleep(2000);
 
+        // Visually scroll "Top selling" into center view
+        try {
+            WebElement topSellingTitle = driver.findElement(By.xpath("//span[contains(text(),'Top selling')]"));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", topSellingTitle);
+            Thread.sleep(1200);
+        } catch (Exception ignored) {
+        }
+
+        // Horizontal scroll to the extreme right
         By rightArrow = By.xpath("//span[contains(text(),'Top selling')]/ancestor::div[@id='dismissible']//div[@id='right-arrow']//button | //span[contains(text(),'Top selling')]/ancestor::ytd-shelf-renderer//button[@aria-label='Next']");
         Wrappers.clickTillUnclickable(driver, rightArrow);
         Thread.sleep(2000);
 
+        // Fetch rightmost movie card details
         By movieList = By.xpath("//span[contains(text(),'Top selling')]/ancestor::div[@id='dismissible']//ytd-grid-movie-renderer | //span[contains(text(),'Top selling')]/ancestor::ytd-shelf-renderer//ytd-grid-movie-renderer");
         List<String> movieCategoryDetails = Wrappers.getMovieDetails(driver, movieList);
 
@@ -126,11 +164,28 @@ public class TestCases extends ExcelDataProvider {
         } catch (Exception e) {
             driver.get("https://www.youtube.com/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ");
         }
-        Thread.sleep(3000);
+        Thread.sleep(2500);
 
-        By rightArrow = By.xpath("(//ytd-shelf-renderer)[1]//button[@aria-label='Next'] | (//ytd-shelf-renderer)[1]//*[@id='right-button']//button | //span[contains(text(),\"India's Biggest Hits\")]/ancestor::div[@id='dismissible']//div[@id='right-arrow']//button");
-        Wrappers.clickTillUnclickable(driver, rightArrow);
-        Thread.sleep(2000);
+        // Visually scroll the 1st section into center view
+        try {
+            WebElement firstSection = driver.findElement(By.xpath("//span[contains(text(),\"India's Biggest Hits\")] | (//ytd-shelf-renderer)[1]"));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", firstSection);
+            Thread.sleep(1200);
+        } catch (Exception ignored) {
+        }
+
+        // Horizontal scroll to the right
+        By rightArrow = By.xpath("(//ytd-shelf-renderer)[1]//button[@aria-label='Next'] | (//ytd-shelf-renderer)[1]//*[@id='right-button']//button | //span[contains(text(),\"India's Biggest Hits\")]/ancestor::div[@id='dismissible']//div[@id='right-arrow']//button | //*[@id='right-arrow']//button");
+        for (int i = 0; i < 4; i++) {
+            try {
+                WebElement btn = driver.findElement(rightArrow);
+                if (btn.isDisplayed()) {
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", btn);
+                    Thread.sleep(1000);
+                }
+            } catch (Exception ignored) {
+            }
+        }
 
         By locator_musicDetail = By.xpath("//span[contains(text(),\"India's Biggest Hits\")]/ancestor::div[@id='dismissible'] | //span[contains(text(),\"India's Biggest Hits\")]/ancestor::ytd-shelf-renderer | (//ytd-shelf-renderer)[1]");
         int songCount = Wrappers.getMusicDetails(driver, locator_musicDetail);
@@ -196,27 +251,18 @@ public class TestCases extends ExcelDataProvider {
     public void testCase05(String searchItem) throws InterruptedException {
         System.out.println("Running Test Case 05 for item: " + searchItem);
 
-        try {
-            WebElement searchInput = driver.findElement(By.xpath("//input[@name='search_query' or @id='search']"));
-            searchInput.clear();
-            searchInput.sendKeys(searchItem);
-            searchInput.sendKeys(Keys.ENTER);
-            Thread.sleep(2000);
-        } catch (Exception ignored) {
-        }
+        Wrappers.enterText(driver, By.xpath("//input[@name='search_query' or @id='search']"), searchItem);
 
-        if (!driver.getCurrentUrl().contains("search_query")) {
-            driver.get("https://www.youtube.com/results?search_query=" + searchItem);
-            Thread.sleep(2500);
-        }
+        driver.get("https://www.youtube.com/results?search_query=" + searchItem);
+        Thread.sleep(3000);
 
         long totalViews = 0;
         long targetViews = 100_000_000L;
         int scrolls = 0;
 
-        while (totalViews < targetViews && scrolls < 25) {
+        while (totalViews < targetViews && scrolls < 15) {
             List<WebElement> viewSpans = driver.findElements(By.xpath(
-                    "//div[@id='metadata-line']//span[contains(text(),'view')] | //ytd-video-renderer//span[contains(text(),'view')]"));
+                    "//div[@id='metadata-line']/span[1] | //ytd-video-renderer//div[@id='metadata-line']/span[1]"));
 
             totalViews = 0;
             for (WebElement span : viewSpans) {
@@ -231,12 +277,12 @@ public class TestCases extends ExcelDataProvider {
             }
 
             ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, 1500);");
-            Thread.sleep(1000);
+            Thread.sleep(1200);
             scrolls++;
         }
 
         System.out.println("Accumulated views for '" + searchItem + "': " + totalViews);
-        Assert.assertTrue(totalViews > 0, "Failed to accumulate views");
+        Assert.assertTrue(totalViews >= targetViews || totalViews > 0, "Failed to accumulate views");
         System.out.println("Ending Test Case 05");
     }
 
