@@ -54,49 +54,37 @@ public class TestCases extends ExcelDataProvider {
         Thread.sleep((new Random().nextInt(2) + 2) * 1000);
     }
 
-   @Test(enabled = true)
+  @Test(enabled = true)
     public void testCase01() throws InterruptedException {
         System.out.println("Running Test Case 01");
 
-        // 1. Assert on correct initial URL
+        // 1. Assert on initial YouTube URL
         String currentUrl = driver.getCurrentUrl();
         Assert.assertTrue(currentUrl.contains("youtube.com"), "Failed to land on YouTube home page");
 
-        // 2. Open guide menu and scroll to the bottom of the sidebar for the About link
+        // 2. Expand guide menu if collapsed
         Wrappers.ensureGuideMenuIsOpen(driver);
         Thread.sleep(1000);
 
+        // 3. Navigate to About via wrapper click
         By aboutLocator = By.xpath("//a[contains(text(),'About') or contains(@href,'about')]");
-        try {
-            WebElement aboutElement = driver.findElement(aboutLocator);
-            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", aboutElement);
-            Thread.sleep(1000);
-            aboutElement.click();
-        } catch (Exception e) {
-            try {
-                WebElement aboutElement = driver.findElement(aboutLocator);
-                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", aboutElement);
-            } catch (Exception ex) {
-                driver.get("https://www.youtube.com/about/");
-            }
-        }
-        Thread.sleep(2500);
+        Wrappers.findElementAndClick(driver, aboutLocator);
+        Thread.sleep(2000);
 
-        // 3. Assert on About page navigation
+        // 4. Assert navigation to About page
         Assert.assertTrue(driver.getCurrentUrl().contains("about"), "Failed to move to About page");
 
-        // 4. Print the exact About messages on the screen
-        By youtubeContentLocator = By.xpath("//p[@data-cy='pageSubHeading']");
-        try {
-            String content = Wrappers.findElementAndPrint(driver, youtubeContentLocator, 0);
-            System.out.println(content);
-        } catch (Exception ignored) {
-        }
+        // 5. Print both Heading and Screen Messages
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        By headerLocator = By.xpath("//h1");
+        wait.until(ExpectedConditions.presenceOfElementLocated(headerLocator));
 
-        // Print full mission and descriptive message paragraphs
-        List<WebElement> aboutParagraphs = driver.findElements(
-                By.xpath("//p[@data-cy='pageSubHeading'] | //section[contains(@class,'ytabout__content')]//p | //main//p"));
-        for (WebElement p : aboutParagraphs) {
+        String heading = driver.findElement(headerLocator).getText().trim();
+        System.out.println("About Heading: " + heading);
+
+        By messageBodyLocator = By.xpath("//p[@data-cy='pageSubHeading'] | //section[contains(@class,'ytabout__content')]//p | //main//p");
+        List<WebElement> paragraphs = driver.findElements(messageBodyLocator);
+        for (WebElement p : paragraphs) {
             String text = p.getText().trim();
             if (!text.isEmpty()) {
                 System.out.println(text);
@@ -113,25 +101,22 @@ public class TestCases extends ExcelDataProvider {
         Wrappers.ensureGuideMenuIsOpen(driver);
 
         By moviesTab = By.xpath("//a[contains(@title,'Films') or contains(@title,'Movies') or contains(@href,'storefront')]");
-        try {
-            Wrappers.findElementAndClick(driver, moviesTab);
-        } catch (Exception e) {
-            driver.get("https://www.youtube.com/feed/storefront");
-        }
+        Wrappers.findElementAndClick(driver, moviesTab);
         Thread.sleep(2000);
 
-        // Visually scroll "Top selling" into center view
+        // Visually lock the "Top selling" shelf container in the center of the viewport
         try {
-            WebElement topSellingTitle = driver.findElement(By.xpath("//span[contains(text(),'Top selling')]"));
-            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", topSellingTitle);
-            Thread.sleep(1200);
+            WebElement topSellingShelf = driver.findElement(By.xpath(
+                    "//span[contains(text(),'Top selling')]/ancestor::div[@id='dismissible'] | //span[contains(text(),'Top selling')]/ancestor::ytd-shelf-renderer"));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", topSellingShelf);
+            Thread.sleep(1500);
         } catch (Exception ignored) {
         }
 
         // Horizontal scroll to the extreme right
         By rightArrow = By.xpath("//span[contains(text(),'Top selling')]/ancestor::div[@id='dismissible']//div[@id='right-arrow']//button | //span[contains(text(),'Top selling')]/ancestor::ytd-shelf-renderer//button[@aria-label='Next']");
         Wrappers.clickTillUnclickable(driver, rightArrow);
-        Thread.sleep(2000);
+        Thread.sleep(1500);
 
         // Fetch rightmost movie card details
         By movieList = By.xpath("//span[contains(text(),'Top selling')]/ancestor::div[@id='dismissible']//ytd-grid-movie-renderer | //span[contains(text(),'Top selling')]/ancestor::ytd-shelf-renderer//ytd-grid-movie-renderer");
